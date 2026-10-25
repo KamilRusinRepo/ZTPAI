@@ -1,4 +1,5 @@
 import express from 'express';
+import { requestId } from './middleware/requestId.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { notFound } from './middleware/notFound.js';
 import { createRoomsService } from './modules/rooms/rooms.service.js';
@@ -11,6 +12,7 @@ import { createReservationsRouter } from './modules/reservations/reservations.ro
 export function createApp({ roomsRepository, reservationsRepository }) {
   const app = express();
   app.disable('x-powered-by');
+  app.use(requestId);
   app.use(express.json());
   const roomsService = createRoomsService({ roomsRepository });
   const reservationsService = createReservationsService({ roomsRepository, reservationsRepository });

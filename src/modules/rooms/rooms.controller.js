@@ -1,4 +1,3 @@
-import { parseRoomId } from './rooms.schemas.js';
 import { toRoomResponse } from './rooms.mapper.js';
 
 export function createRoomsController(roomsService) {
@@ -8,7 +7,7 @@ export function createRoomsController(roomsService) {
       return res.json(rooms.map(toRoomResponse));
     },
     async getById(req, res) {
-      const room = await roomsService.getRoom(parseRoomId(req.params.id));
+      const room = await roomsService.getRoom(req.validated.params.id);
       return res.json(toRoomResponse(room));
     },
   };

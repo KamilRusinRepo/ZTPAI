@@ -48,12 +48,15 @@ test('Zadanie 1: cztery sale i poprawne pola', async (t) => {
 test('Zadanie 1: nieistniejące ID -> 404', async (t) => {
   const request = await client(t);
   assert.equal((await request('/api/rooms/999')).status, 404);
-  assert.equal((await request('/api/rooms/abc')).status, 404);
+  assert.equal((await request('/api/rooms/abc')).status, 400);
 });
 
 test('Zadanie 2: tworzenie, własne ID i status oraz kolejne ID', async (t) => {
   const request = await client(t);
-  const created = await request('/api/reservations', 'POST', { ...valid, id: 99, status: 'CANCELLED' });
+  const rejected = await request('/api/reservations', 'POST', { ...valid, id: 99, status: 'CANCELLED' });
+  assert.equal(rejected.status, 400);
+  assert.deepEqual(rejected.body.error.details.map((item) => item.field).sort(), ['id', 'status']);
+  const created = await request('/api/reservations', 'POST', valid);
   assert.equal(created.status, 201);
   assert.equal(new Date(created.body.createdAt).toISOString(), created.body.createdAt);
   assert.deepEqual(created.body, { id: 1, ...valid, status: 'CONFIRMED', createdAt: created.body.createdAt, cancelledAt: null });
@@ -62,9 +65,9 @@ test('Zadanie 2: tworzenie, własne ID i status oraz kolejne ID', async (t) => {
 
 for (const [field, values] of Object.entries({
   roomId: [undefined, null, 0, -1, '1', 1.5],
-  reservedBy: [undefined, null, '', '   ', 123],
-  participants: [undefined, null, 0, -1, '20'],
-  startTime: [undefined, null, '', '   ', 123, 'invalid', '2026-11-10T10:00:00'],
+  reservedBy: [undefined, null, '', '   ', 123, 'ab', '  ab  ', 'a'.repeat(101)],
+  participants: [undefined, null, 0, -1, '20', 1.5],
+  startTime: [undefined, null, '', '   ', 123, 'invalid', '2026-11-10T10:00:00', '2026-02-30T10:00:00Z'],
   endTime: [undefined, null, '', '   ', 123, 'invalid', '2026-11-10T12:00:00'],
 })) {
   for (const value of values) {
