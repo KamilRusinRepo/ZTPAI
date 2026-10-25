@@ -1,18 +1,17 @@
-import { parseCreateReservation, parseReservationId, parseReservationFilters } from './reservations.schemas.js';
 import { toReservationResponse } from './reservations.mapper.js';
 
 export function createReservationsController(reservationsService) {
   return {
     async create(req, res) {
-      const reservation = await reservationsService.createReservation(parseCreateReservation(req.body));
-      return res.status(201).json(toReservationResponse(reservation));
+      const reservation = await reservationsService.createReservation(req.validated.body);
+      return res.status(201).location(`/api/reservations/${reservation.id}`).json(toReservationResponse(reservation));
     },
     async list(req, res) {
-      const reservations = await reservationsService.listReservations(parseReservationFilters(req.query));
+      const reservations = await reservationsService.listReservations(req.validated.query);
       return res.json(reservations.map(toReservationResponse));
     },
     async cancel(req, res) {
-      const reservation = await reservationsService.cancelReservation(parseReservationId(req.params.id));
+      const reservation = await reservationsService.cancelReservation(req.validated.params.id);
       return res.json(toReservationResponse(reservation));
     },
   };

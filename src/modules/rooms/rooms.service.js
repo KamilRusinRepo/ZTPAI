@@ -1,4 +1,4 @@
-import { AppError } from '../../errors/AppError.js';
+import { NotFoundError } from '../../errors/AppError.js';
 
 export function createRoomsService({ roomsRepository }) {
   return {
@@ -7,7 +7,7 @@ export function createRoomsService({ roomsRepository }) {
     },
     async getRoom(id) {
       const room = await roomsRepository.findById(id);
-      if (!room) throw new AppError('Room not found', 404);
+      if (!room) throw new NotFoundError('Room');
       return room;
     },
   };
