@@ -9,6 +9,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 const app = createApp({
   roomsRepository: createRoomsRepository(),
   reservationsRepository: createReservationsRepository(),
+  enableDebugRoutes: process.env.ENABLE_DEBUG_ROUTES === 'true',
 });
 const server = app.listen(port, () => {
   console.log(`Room Booking API: http://localhost:${port}`);
