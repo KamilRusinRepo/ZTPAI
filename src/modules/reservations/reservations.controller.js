@@ -4,7 +4,7 @@ export function createReservationsController(reservationsService) {
   return {
     async create(req, res) {
       const reservation = await reservationsService.createReservation(req.validated.body);
-      return res.status(201).json(toReservationResponse(reservation));
+      return res.status(201).location(`/api/reservations/${reservation.id}`).json(toReservationResponse(reservation));
     },
     async list(req, res) {
       const reservations = await reservationsService.listReservations(req.validated.query);

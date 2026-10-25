@@ -1,13 +1,17 @@
+function toIsoOrNull(value) {
+  return value == null ? null : new Date(value).toISOString();
+}
+
 export function toReservationResponse(reservation) {
   return {
-    id: reservation.id,
-    roomId: reservation.roomId,
-    reservedBy: reservation.reservedBy,
-    participants: reservation.participants,
-    startTime: new Date(reservation.startTime).toISOString(),
-    endTime: new Date(reservation.endTime).toISOString(),
-    status: reservation.status,
-    createdAt: new Date(reservation.createdAt).toISOString(),
-    cancelledAt: reservation.cancelledAt == null ? null : new Date(reservation.cancelledAt).toISOString(),
+    id: reservation.id ?? null,
+    roomId: reservation.roomId ?? null,
+    reservedBy: reservation.reservedBy ?? null,
+    participants: reservation.participants ?? null,
+    startTime: toIsoOrNull(reservation.startTime),
+    endTime: toIsoOrNull(reservation.endTime),
+    status: reservation.status ?? null,
+    createdAt: toIsoOrNull(reservation.createdAt),
+    cancelledAt: toIsoOrNull(reservation.cancelledAt),
   };
 }

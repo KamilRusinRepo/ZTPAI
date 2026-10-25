@@ -2,6 +2,10 @@ import { ConflictError, NotFoundError, ValidationError } from '../../errors/AppE
 
 const MIN_DURATION_MS = 15 * 60 * 1000;
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
+const ALLOWED_TRANSITIONS = {
+  CONFIRMED: ['CANCELLED'],
+  CANCELLED: [],
+};
 
 export function createReservationsService({ roomsRepository, reservationsRepository, now = () => new Date() }) {
   async function createCheckedReservation(input) {
@@ -40,26 +44,41 @@ export function createReservationsService({ roomsRepository, reservationsReposit
       status: 'CONFIRMED',
       createdAt: currentTime.toISOString(),
       cancelledAt: null,
+      internalNote: 'created via API v2',
     });
   }
 
-  // Sprawdzenie dostępności i zapis wykonujemy kolejno, także dla równoczesnych żądań.
-  let creationQueue = Promise.resolve();
+  // Zmiany wykonujemy kolejno, aby równoczesne żądania nie nadpisywały stanu.
+  let writeQueue = Promise.resolve();
+  function enqueueWrite(action) {
+    const operation = writeQueue.then(action);
+    // Błąd wraca do wywołującego, ale nie blokuje kolejnych operacji.
+    writeQueue = operation.catch(() => {});
+    return operation;
+  }
+
   return {
     async createReservation(input) {
-      const operation = creationQueue.then(() => createCheckedReservation(input));
-      // Odrzucone żądanie nie blokuje kolejnych; jego błąd nadal trafia do wywołującego.
-      creationQueue = operation.catch(() => {});
-      return operation;
+      return enqueueWrite(() => createCheckedReservation(input));
     },
     async listReservations(filters) {
       return reservationsRepository.list(filters);
     },
     async cancelReservation(id) {
-      const reservation = await reservationsRepository.findById(id);
-      if (!reservation) throw new NotFoundError('Reservation');
-      if (reservation.status === 'CANCELLED') return reservation;
-      return reservationsRepository.updateStatus(id, 'CANCELLED', now().toISOString());
+      return enqueueWrite(async () => {
+        const reservation = await reservationsRepository.findById(id);
+        if (!reservation) throw new NotFoundError('Reservation');
+        // Powtórzenie anulowania zwraca ten sam stan, także po terminie rozpoczęcia.
+        if (reservation.status === 'CANCELLED') return reservation;
+        if (!ALLOWED_TRANSITIONS[reservation.status]?.includes('CANCELLED')) {
+          throw new ConflictError('Cannot change reservation status to CANCELLED', 'INVALID_STATUS_TRANSITION');
+        }
+        const currentTime = now();
+        if (new Date(reservation.startTime).getTime() <= currentTime.getTime()) {
+          throw new ConflictError('Reservation has already started', 'RESERVATION_ALREADY_STARTED');
+        }
+        return reservationsRepository.updateStatus(id, 'CANCELLED', currentTime.toISOString());
+      });
     },
   };
 }

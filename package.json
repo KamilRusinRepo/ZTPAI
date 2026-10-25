@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node src/server.js",
+    "start:seed": "node scripts/start-seeded.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
     "evidence": "node scripts/evidence.js"
