@@ -2,11 +2,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createApp } from '../src/app.js';
+import { createRoomsRepository } from '../src/modules/rooms/rooms.repository.memory.js';
+import { createReservationsRepository } from '../src/modules/reservations/reservations.repository.memory.js';
 
-const valid = { roomId: 1, reservedBy: 'Jan Kowalski', participants: 20, date: '2026-10-10' };
+function buildApp() {
+  return createApp({
+    roomsRepository: createRoomsRepository(),
+    reservationsRepository: createReservationsRepository(),
+  });
+}
+
+const valid = { roomId: 1, reservedBy: 'Jan Kowalski', participants: 20, startTime: '2026-11-10T10:00:00.000Z', endTime: '2026-11-10T12:00:00.000Z' };
 
 async function client(t) {
-  const server = createApp().listen(0, '127.0.0.1');
+  const server = buildApp().listen(0, '127.0.0.1');
   await once(server, 'listening');
   t.after(() => new Promise((resolve, reject) => {
     server.close((error) => error ? reject(error) : resolve());
@@ -44,9 +53,10 @@ test('Zadanie 1: nieistniejące ID -> 404', async (t) => {
 
 test('Zadanie 2: tworzenie, własne ID i status oraz kolejne ID', async (t) => {
   const request = await client(t);
-  assert.deepEqual(await request('/api/reservations', 'POST', { ...valid, id: 99, status: 'CANCELLED' }), {
-    status: 201, body: { id: 1, ...valid, status: 'CONFIRMED' },
-  });
+  const created = await request('/api/reservations', 'POST', { ...valid, id: 99, status: 'CANCELLED' });
+  assert.equal(created.status, 201);
+  assert.equal(new Date(created.body.createdAt).toISOString(), created.body.createdAt);
+  assert.deepEqual(created.body, { id: 1, ...valid, status: 'CONFIRMED', createdAt: created.body.createdAt, cancelledAt: null });
   assert.equal((await request('/api/reservations', 'POST', valid)).body.id, 2);
 });
 
@@ -54,7 +64,8 @@ for (const [field, values] of Object.entries({
   roomId: [undefined, null, 0, -1, '1', 1.5],
   reservedBy: [undefined, null, '', '   ', 123],
   participants: [undefined, null, 0, -1, '20'],
-  date: [undefined, null, '', '   ', 123],
+  startTime: [undefined, null, '', '   ', 123, 'invalid', '2026-11-10T10:00:00'],
+  endTime: [undefined, null, '', '   ', 123, 'invalid', '2026-11-10T12:00:00'],
 })) {
   for (const value of values) {
     test(`Zadanie 2: ${field}=${JSON.stringify(value)} -> 400`, async (t) => {
@@ -97,15 +108,18 @@ test('Zadanie 4: lista, filtr i puste wyniki', async (t) => {
 test('Zadanie 5: anulowanie, powtórzenie i zapis zmiany w tablicy', async (t) => {
   const request = await client(t);
   await request('/api/reservations', 'POST', valid);
-  const cancelled = { id: 1, ...valid, status: 'CANCELLED' };
-  assert.deepEqual(await request('/api/reservations/1/cancel', 'PATCH'), { status: 200, body: cancelled });
+  const result = await request('/api/reservations/1/cancel', 'PATCH');
+  assert.equal(result.status, 200);
+  const cancelled = result.body;
+  assert.equal(cancelled.status, 'CANCELLED');
+  assert.equal(new Date(cancelled.cancelledAt).toISOString(), cancelled.cancelledAt);
   assert.deepEqual((await request('/api/reservations/1/cancel', 'PATCH')).body, cancelled);
   assert.deepEqual((await request('/api/reservations')).body, [cancelled]);
   assert.equal((await request('/api/reservations/999/cancel', 'PATCH')).status, 404);
 });
 
 test('Błędny JSON i brak body -> 400; nieznana ścieżka -> 404', async (t) => {
-  const server = createApp().listen(0, '127.0.0.1');
+  const server = buildApp().listen(0, '127.0.0.1');
   await once(server, 'listening');
   t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -116,4 +130,18 @@ test('Błędny JSON i brak body -> 400; nieznana ścieżka -> 404', async (t) =>
     assert.equal(result.status, 400);
   }
   assert.equal((await fetch(`${base}/unknown`)).status, 404);
+});
+
+test('Nowy model: daty ze strefą są zwracane w UTC, bez pola date', async (t) => {
+  const request = await client(t);
+  const created = await request('/api/reservations', 'POST', {
+    ...valid,
+    startTime: '2026-11-10T10:00:00+01:00',
+    endTime: '2026-11-10T12:00:00+01:00',
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.startTime, '2026-11-10T09:00:00.000Z');
+  assert.equal(created.body.endTime, '2026-11-10T11:00:00.000Z');
+  assert.equal('date' in created.body, false);
+  assert.deepEqual((await request('/api/reservations')).body, [created.body]);
 });
