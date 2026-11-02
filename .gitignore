@@ -1,5 +1,7 @@
 node_modules/
+.env
 .tools/
 node-releases.json
 *.log
 __pycache__/
+test/
