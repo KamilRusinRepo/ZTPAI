@@ -17,6 +17,8 @@
     "migrate:latest": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "migrate:status": "knex migrate:status",
+    "seed:run": "knex seed:run",
+    "verify:task2": "node scripts/verify-task2.js",
     "evidence": "node scripts/evidence.js"
   },
   "dependencies": {

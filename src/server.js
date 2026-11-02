@@ -1,22 +1,47 @@
 import { createApp } from './app.js';
-import { createRoomsRepository } from './modules/rooms/rooms.repository.memory.js';
-import { createReservationsRepository } from './modules/reservations/reservations.repository.memory.js';
+
+try {
+  process.loadEnvFile();
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+}
 
 const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error('PORT must be an integer between 1 and 65535');
 }
+const driver = process.env.REPOSITORY_DRIVER ?? 'knex';
+if (!['knex', 'memory'].includes(driver)) throw new Error('REPOSITORY_DRIVER must be knex or memory');
+
+// Repository implementation is selected only here.
+const [{ createRoomsRepository }, { createReservationsRepository }, { createBuildingsRepository }] = await Promise.all([
+  import('./modules/rooms/rooms.repository.' + driver + '.js'),
+  import('./modules/reservations/reservations.repository.' + driver + '.js'),
+  import('./modules/buildings/buildings.repository.' + driver + '.js'),
+]);
+const db = driver === 'knex' ? (await import('./db/knex.js')).db : null;
+if (db) {
+  try { await db.raw('SELECT 1'); }
+  catch (error) { await db.destroy(); throw error; }
+}
 const app = createApp({
-  roomsRepository: createRoomsRepository(),
-  reservationsRepository: createReservationsRepository({
+  roomsRepository: createRoomsRepository(db),
+  reservationsRepository: createReservationsRepository(db ?? {
     seedStartedReservation: process.env.SEED_STARTED_RESERVATION === 'true',
   }),
+  buildingsRepository: createBuildingsRepository(db),
   enableDebugRoutes: process.env.ENABLE_DEBUG_ROUTES === 'true',
 });
 const server = app.listen(port, () => {
-  console.log(`Room Booking API: http://localhost:${port}`);
+  console.log('Room Booking API (' + driver + '): http://localhost:' + port);
 });
-server.on('error', (error) => {
-  console.error(`Cannot start API: ${error.message}`);
+server.on('error', async (error) => {
+  console.error('Cannot start API: ' + error.message);
+  if (db) await db.destroy();
   process.exitCode = 1;
 });
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    server.close(async () => { if (db) await db.destroy(); });
+  });
+}
