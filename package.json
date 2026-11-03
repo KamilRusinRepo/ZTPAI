@@ -19,6 +19,7 @@
     "migrate:status": "knex migrate:status",
     "seed:run": "knex seed:run",
     "verify:task2": "node scripts/verify-task2.js",
+    "verify:task3": "node scripts/verify-task3.js",
     "evidence": "node scripts/evidence.js"
   },
   "dependencies": {

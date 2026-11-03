@@ -6,6 +6,7 @@ export function createReservationsRouter(controller) {
   const router = Router();
   router.post('/', validate({ body: createReservationBody }), controller.create);
   router.get('/', validate({ query: listReservationsQuery }), controller.list);
+  router.get('/:id', validate({ params: idParams }), controller.getById);
   router.patch('/:id/cancel', validate({ params: idParams }), controller.cancel);
   return router;
 }

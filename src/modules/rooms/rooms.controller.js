@@ -1,4 +1,4 @@
-import { toRoomResponse } from './rooms.mapper.js';
+import { toRoomResponse, toRoomDetailsResponse } from './rooms.mapper.js';
 
 export function createRoomsController(roomsService) {
   return {
@@ -12,7 +12,7 @@ export function createRoomsController(roomsService) {
     },
     async getById(req, res) {
       const room = await roomsService.getRoom(req.validated.params.id);
-      return res.json(toRoomResponse(room));
+      return res.json(toRoomDetailsResponse(room));
     },
   };
 }

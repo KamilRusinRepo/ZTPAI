@@ -24,12 +24,15 @@ if (db) {
   try { await db.raw('SELECT 1'); }
   catch (error) { await db.destroy(); throw error; }
 }
+const buildingsRepository = createBuildingsRepository(db);
+const roomsRepository = createRoomsRepository(db ?? { buildingsRepository });
 const app = createApp({
-  roomsRepository: createRoomsRepository(db),
+  roomsRepository,
   reservationsRepository: createReservationsRepository(db ?? {
     seedStartedReservation: process.env.SEED_STARTED_RESERVATION === 'true',
+    roomsRepository,
   }),
-  buildingsRepository: createBuildingsRepository(db),
+  buildingsRepository,
   enableDebugRoutes: process.env.ENABLE_DEBUG_ROUTES === 'true',
 });
 const server = app.listen(port, () => {

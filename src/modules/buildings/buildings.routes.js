@@ -5,6 +5,7 @@ import { idParams, createBuildingBody } from './buildings.schemas.js';
 export function createBuildingsRouter(controller) {
   const router = Router();
   router.get('/', controller.list);
+  router.get('/:id/rooms', validate({ params: idParams }), controller.listRooms);
   router.get('/:id', validate({ params: idParams }), controller.getById);
   router.post('/', validate({ body: createBuildingBody }), controller.create);
   return router;

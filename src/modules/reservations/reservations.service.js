@@ -58,11 +58,16 @@ export function createReservationsService({ roomsRepository, reservationsReposit
   }
 
   return {
+    async getReservation(id) {
+      const reservation = await reservationsRepository.findById(id);
+      if (!reservation) throw new NotFoundError('Reservation');
+      return reservation;
+    },
     async createReservation(input) {
       return enqueueWrite(() => createCheckedReservation(input));
     },
     async listReservations(filters) {
-      return reservationsRepository.list(filters);
+      return reservationsRepository.listPage(filters);
     },
     async cancelReservation(id) {
       return enqueueWrite(async () => {

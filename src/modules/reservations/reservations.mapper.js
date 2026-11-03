@@ -2,6 +2,17 @@ function toIsoOrNull(value) {
   return value == null ? null : new Date(value).toISOString();
 }
 
+export function toReservationDetailsResponse(reservation) {
+  if (!reservation.room) return toReservationResponse(reservation);
+  const { id, roomId, ...fields } = toReservationResponse(reservation);
+  return {
+    id,
+    room: { id: reservation.room.id, name: reservation.room.name,
+      building: { id: reservation.room.building.id, name: reservation.room.building.name } },
+    ...fields,
+  };
+}
+
 export function toReservationResponse(reservation) {
   return {
     id: reservation.id ?? null,

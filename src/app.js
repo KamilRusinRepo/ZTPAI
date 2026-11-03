@@ -22,7 +22,7 @@ export function createApp({ roomsRepository, reservationsRepository, buildingsRe
   app.use('/api/rooms', createRoomsRouter(createRoomsController(roomsService)));
   app.use('/api/reservations', createReservationsRouter(createReservationsController(reservationsService)));
   if (buildingsRepository) {
-    app.use('/api/buildings', createBuildingsRouter(createBuildingsController(createBuildingsService({ buildingsRepository }))));
+    app.use('/api/buildings', createBuildingsRouter(createBuildingsController(createBuildingsService({ buildingsRepository, roomsRepository }))));
   }
   // Tymczasowy endpoint do demonstracji 500 w sprawozdaniu.
   if (enableDebugRoutes) {

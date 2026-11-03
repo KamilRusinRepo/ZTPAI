@@ -7,6 +7,13 @@ export function createBuildingsRepository() {
   ];
   let nextId = 3;
   return {
+    async listWithRoomsCount(roomsRepository) {
+      const counts = new Map();
+      for (const room of await roomsRepository.list()) {
+        counts.set(room.buildingId, (counts.get(room.buildingId) ?? 0) + 1);
+      }
+      return structuredClone(buildings.map((building) => ({ ...building, roomsCount: counts.get(building.id) ?? 0 })));
+    },
     async list() { return structuredClone(buildings); },
     async findById(id) { return structuredClone(buildings.find((item) => item.id === id) ?? null); },
     async create(data) {
