@@ -2,6 +2,11 @@ import { AppError } from '../errors/AppError.js';
 
 export function errorHandler(error, req, res, next) {
   if (res.headersSent) return next(error);
+  if (error.code === '23P01') {
+    return res.status(409).json({
+      error: { code: 'ROOM_ALREADY_BOOKED', message: 'Room is already booked for this time', requestId: req.id },
+    });
+  }
   if (error.code === '23505') {
     return res.status(409).json({
       error: { code: 'UNIQUE_VIOLATION', message: 'Resource already exists', requestId: req.id },

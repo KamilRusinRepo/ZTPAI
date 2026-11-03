@@ -26,7 +26,11 @@ if (db) {
 }
 const buildingsRepository = createBuildingsRepository(db);
 const roomsRepository = createRoomsRepository(db ?? { buildingsRepository });
+const runInTransaction = db
+  ? (await import('./modules/reservations/reservations.unit-of-work.knex.js')).createReservationsUnitOfWork(db)
+  : undefined;
 const app = createApp({
+  runInTransaction,
   roomsRepository,
   reservationsRepository: createReservationsRepository(db ?? {
     seedStartedReservation: process.env.SEED_STARTED_RESERVATION === 'true',

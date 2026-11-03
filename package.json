@@ -18,6 +18,8 @@
     "migrate:rollback": "knex migrate:rollback",
     "migrate:status": "knex migrate:status",
     "seed:run": "knex seed:run",
+    "double-booking": "node scripts/double-booking.js",
+    "verify:task5": "node scripts/verify-task5.js",
     "verify:task2": "node scripts/verify-task2.js",
     "verify:task3": "node scripts/verify-task3.js",
     "evidence": "node scripts/evidence.js"

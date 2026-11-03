@@ -9,6 +9,10 @@ function toRoom(row) {
 
 export function createRoomsRepository(db) {
   return {
+    async lockById(id) {
+      // Sala istnieje również wtedy, gdy nie ma jeszcze żadnych rezerwacji.
+      return toRoom(await db('rooms').where({ id }).forUpdate().first());
+    },
     async list() {
       return (await db('rooms').orderBy('id')).map(toRoom);
     },
