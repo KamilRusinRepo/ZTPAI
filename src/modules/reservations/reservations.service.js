@@ -7,9 +7,11 @@ const ALLOWED_TRANSITIONS = {
   CANCELLED: [],
 };
 
-export function createReservationsService({ roomsRepository, reservationsRepository, now = () => new Date() }) {
-  async function createCheckedReservation(input) {
-    const room = await roomsRepository.findById(input.roomId);
+export function createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, now = () => new Date() }) {
+  async function createCheckedReservation(input, { roomsRepository, reservationsRepository }) {
+    const room = roomsRepository.lockById
+      ? await roomsRepository.lockById(input.roomId)
+      : await roomsRepository.findById(input.roomId);
     if (!room) throw new NotFoundError('Room');
     if (input.participants > room.capacity) throw new ConflictError('Room capacity exceeded', 'ROOM_CAPACITY_EXCEEDED');
 
@@ -48,7 +50,7 @@ export function createReservationsService({ roomsRepository, reservationsReposit
     });
   }
 
-  // Zmiany wykonujemy kolejno, aby równoczesne żądania nie nadpisywały stanu.
+  // Kolejka pozostaje dla wariantu memory; PostgreSQL korzysta z transakcji.
   let writeQueue = Promise.resolve();
   function enqueueWrite(action) {
     const operation = writeQueue.then(action);
@@ -57,17 +59,33 @@ export function createReservationsService({ roomsRepository, reservationsReposit
     return operation;
   }
 
+  function write(operation) {
+    if (runInTransaction) return runInTransaction(operation);
+    return enqueueWrite(() => operation({ roomsRepository, reservationsRepository }));
+  }
+
   return {
+    async getReservation(id) {
+      const reservation = await reservationsRepository.findById(id);
+      if (!reservation) throw new NotFoundError('Reservation');
+      return reservation;
+    },
     async createReservation(input) {
-      return enqueueWrite(() => createCheckedReservation(input));
+      return write((repositories) => createCheckedReservation(input, repositories));
     },
     async listReservations(filters) {
-      return reservationsRepository.list(filters);
+      return reservationsRepository.listPage(filters);
     },
     async cancelReservation(id) {
-      return enqueueWrite(async () => {
-        const reservation = await reservationsRepository.findById(id);
+      return write(async ({ roomsRepository, reservationsRepository }) => {
+        let reservation = await reservationsRepository.findById(id);
         if (!reservation) throw new NotFoundError('Reservation');
+        if (roomsRepository.lockById) {
+          await roomsRepository.lockById(reservation.roomId);
+          // Inne żądanie mogło anulować rezerwację podczas oczekiwania na blokadę.
+          reservation = await reservationsRepository.findById(id);
+          if (!reservation) throw new NotFoundError('Reservation');
+        }
         // Powtórzenie anulowania zwraca ten sam stan, także po terminie rozpoczęcia.
         if (reservation.status === 'CANCELLED') return reservation;
         if (!ALLOWED_TRANSITIONS[reservation.status]?.includes('CANCELLED')) {

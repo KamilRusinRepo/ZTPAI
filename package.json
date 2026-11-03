@@ -12,10 +12,22 @@
     "start:seed": "node scripts/start-seeded.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "migrate:latest": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback",
+    "migrate:status": "knex migrate:status",
+    "seed:run": "knex seed:run",
+    "double-booking": "node scripts/double-booking.js",
+    "verify:task5": "node scripts/verify-task5.js",
+    "verify:task2": "node scripts/verify-task2.js",
+    "verify:task3": "node scripts/verify-task3.js",
     "evidence": "node scripts/evidence.js"
   },
   "dependencies": {
     "express": "^5.1.0",
+    "knex": "^3.3.0",
+    "pg": "^8.23.1",
     "zod": "^4.6.7"
   }
 }

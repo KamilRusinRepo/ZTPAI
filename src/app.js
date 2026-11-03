@@ -8,16 +8,22 @@ import { createRoomsRouter } from './modules/rooms/rooms.routes.js';
 import { createReservationsService } from './modules/reservations/reservations.service.js';
 import { createReservationsController } from './modules/reservations/reservations.controller.js';
 import { createReservationsRouter } from './modules/reservations/reservations.routes.js';
+import { createBuildingsService } from './modules/buildings/buildings.service.js';
+import { createBuildingsController } from './modules/buildings/buildings.controller.js';
+import { createBuildingsRouter } from './modules/buildings/buildings.routes.js';
 
-export function createApp({ roomsRepository, reservationsRepository, enableDebugRoutes = false, now }) {
+export function createApp({ roomsRepository, reservationsRepository, buildingsRepository, runInTransaction, enableDebugRoutes = false, now }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestLogger);
   app.use(express.json());
-  const roomsService = createRoomsService({ roomsRepository });
-  const reservationsService = createReservationsService({ roomsRepository, reservationsRepository, now });
+  const roomsService = createRoomsService({ roomsRepository, buildingsRepository });
+  const reservationsService = createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, now });
   app.use('/api/rooms', createRoomsRouter(createRoomsController(roomsService)));
   app.use('/api/reservations', createReservationsRouter(createReservationsController(reservationsService)));
+  if (buildingsRepository) {
+    app.use('/api/buildings', createBuildingsRouter(createBuildingsController(createBuildingsService({ buildingsRepository, roomsRepository }))));
+  }
   // Tymczasowy endpoint do demonstracji 500 w sprawozdaniu.
   if (enableDebugRoutes) {
     app.get('/api/debug/error', async () => {
