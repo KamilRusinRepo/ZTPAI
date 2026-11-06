@@ -20,10 +20,17 @@ export function createApp({ roomsRepository, reservationsRepository, buildingsRe
   const app = express();
   app.disable('x-powered-by');
   app.use(requestLogger);
+  const requireAuth = authenticate(jwtSecret);
+  // Authenticate before parsing protected bodies, including malformed JSON.
+  app.use((req, res, next) => {
+    const publicAuth = req.method === 'POST' && /^\/api\/auth\/(register|login)\/?$/i.test(req.path);
+    const publicDocs = /^\/api\/docs(?:\/|$)/i.test(req.path);
+    return publicAuth || publicDocs ? next() : requireAuth(req, res, next);
+  });
   app.use(express.json());
   if (usersRepository) {
-    const authService = createAuthService({ usersRepository, jwtSecret, jwtExpiresIn });
-    app.use('/api/auth', createAuthRouter(createAuthController(authService), authenticate(jwtSecret)));
+    const authService = createAuthService({ usersRepository, jwtSecret, jwtExpiresIn });to
+    app.use('/api/auth', createAuthRouter(createAuthController(authService), requireAuth));
   }
   const roomsService = createRoomsService({ roomsRepository, buildingsRepository });
   const reservationsService = createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, now });

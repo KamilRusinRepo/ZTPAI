@@ -12,12 +12,13 @@ export async function countConfirmed(db, input) {
   return { count: Number(row.count), sql: query.toSQL() };
 }
 
-export async function runDoubleBooking({ db, input, baseUrls = ['http://localhost:3000'], log = console.log }) {
+export async function runDoubleBooking({ db, input, accessToken, baseUrls = ['http://localhost:3000'], log = console.log }) {
+  if (!accessToken) throw new Error('Pass an accessToken obtained from POST /api/auth/login');
   log('Reservation: ' + JSON.stringify(input));
   const responses = await Promise.all(Array.from({ length: 10 }, async (_, index) => {
     const base = baseUrls[index % baseUrls.length].replace(/\/$/, '');
     const response = await fetch(`${base}/api/reservations`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify(input), signal: AbortSignal.timeout(20000),
     });
     return { status: response.status, body: await response.json() };
@@ -35,7 +36,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   tomorrow.setUTCHours(10, 0, 0, 0);
   const startTime = process.argv[3] ?? tomorrow.toISOString();
   const input = createReservationBody.parse({
-    roomId: Number(process.argv[2] ?? 1), reservedBy: 'Jan Kowalski', participants: 1,
+    roomId: Number(process.argv[2] ?? 1), participants: 1,
     startTime, endTime: process.argv[4] ?? new Date(new Date(startTime).getTime() + 3600000).toISOString(),
   });
   const db = knex(config);
@@ -44,6 +45,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       throw new Error('This interval is already booked. Choose another room or start/end time; no requests were sent.');
     }
     const { responses, count } = await runDoubleBooking({ db, input,
+      accessToken: process.env.ACCESS_TOKEN,
       baseUrls: [process.env.BASE_URL ?? 'http://localhost:3000'] });
     const expected = responses.filter((response) => response.status === 201).length === 1
       && responses.filter((response) => response.status === 409 && response.body.error.code === 'ROOM_ALREADY_BOOKED').length === 9

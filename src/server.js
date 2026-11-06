@@ -1,5 +1,6 @@
 import { createApp } from './app.js';
 import { loadAuthConfig } from './config/auth.js';
+import { createAuthService } from './modules/auth/auth.service.js';
 
 try {
   process.loadEnvFile();
@@ -29,17 +30,24 @@ if (db) {
 }
 const buildingsRepository = createBuildingsRepository(db);
 const roomsRepository = createRoomsRepository(db ?? { buildingsRepository });
+const usersRepository = createUsersRepository(db);
+const demoUser = driver === 'memory' && process.env.SEED_STARTED_RESERVATION === 'true'
+  ? await createAuthService({ usersRepository }).register({
+    email: 'jan.kowalski@seed.example.invalid', password: 'user-password-123',
+  }) : null;
 const runInTransaction = db
   ? (await import('./modules/reservations/reservations.unit-of-work.knex.js')).createReservationsUnitOfWork(db)
   : undefined;
 const app = createApp({
   ...authConfig,
-  usersRepository: createUsersRepository(db),
+  usersRepository,
   runInTransaction,
   roomsRepository,
   reservationsRepository: createReservationsRepository(db ?? {
     seedStartedReservation: process.env.SEED_STARTED_RESERVATION === 'true',
     roomsRepository,
+    usersRepository,
+    seedUserId: demoUser?.id,
   }),
   buildingsRepository,
   enableDebugRoutes: process.env.ENABLE_DEBUG_ROUTES === 'true',

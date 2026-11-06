@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError, ValidationError } from '../../errors/AppError.js';
+import { ConflictError, NotFoundError, ValidationError, UnauthorizedError } from '../../errors/AppError.js';
 
 const MIN_DURATION_MS = 15 * 60 * 1000;
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
@@ -8,7 +8,7 @@ const ALLOWED_TRANSITIONS = {
 };
 
 export function createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, now = () => new Date() }) {
-  async function createCheckedReservation(input, { roomsRepository, reservationsRepository }) {
+  async function createCheckedReservation(input, currentUser, { roomsRepository, reservationsRepository }) {
     const room = roomsRepository.lockById
       ? await roomsRepository.lockById(input.roomId)
       : await roomsRepository.findById(input.roomId);
@@ -39,7 +39,7 @@ export function createReservationsService({ roomsRepository, reservationsReposit
 
     return reservationsRepository.create({
       roomId: input.roomId,
-      reservedBy: input.reservedBy,
+      userId: currentUser.id,
       participants: input.participants,
       startTime: input.startTime,
       endTime: input.endTime,
@@ -70,8 +70,9 @@ export function createReservationsService({ roomsRepository, reservationsReposit
       if (!reservation) throw new NotFoundError('Reservation');
       return reservation;
     },
-    async createReservation(input) {
-      return write((repositories) => createCheckedReservation(input, repositories));
+    async createReservation(input, currentUser) {
+      if (!Number.isSafeInteger(currentUser?.id) || currentUser.id < 1) throw new UnauthorizedError();
+      return write((repositories) => createCheckedReservation(input, currentUser, repositories));
     },
     async listReservations(filters) {
       return reservationsRepository.listPage(filters);
