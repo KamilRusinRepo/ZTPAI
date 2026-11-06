@@ -1,10 +1,25 @@
 import bcrypt from 'bcryptjs';
-import { ConflictError } from '../../errors/AppError.js';
+import jwt from 'jsonwebtoken';
+import { ConflictError, UnauthorizedError } from '../../errors/AppError.js';
 
 export const BCRYPT_ROUNDS = 12;
 
-export function createAuthService({ usersRepository }) {
+export function createAuthService({ usersRepository, jwtSecret, jwtExpiresIn = '15m' }) {
   return {
+    async login({ email, password }) {
+      const user = await usersRepository.findByEmail(email.toLowerCase());
+      const passwordOk = user ? await bcrypt.compare(password, user.passwordHash) : false;
+      if (!user || !passwordOk) throw new UnauthorizedError('Invalid email or password');
+      const accessToken = jwt.sign({ role: user.role }, jwtSecret, {
+        subject: String(user.id), algorithm: 'HS256', expiresIn: jwtExpiresIn,
+      });
+      return { accessToken, tokenType: 'Bearer', expiresIn: jwtExpiresIn };
+    },
+    async getCurrentUser(id) {
+      const user = await usersRepository.findById(id);
+      if (!user) throw new UnauthorizedError('User no longer exists');
+      return user;
+    },
     async register({ email, password }) {
       email = email.toLowerCase();
       if (await usersRepository.findByEmail(email)) {

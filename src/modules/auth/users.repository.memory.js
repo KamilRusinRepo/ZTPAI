@@ -2,6 +2,9 @@ export function createUsersRepository() {
   const users = new Map();
   let nextId = 1;
   return {
+    async findById(id) {
+      return structuredClone([...users.values()].find((user) => user.id === id) ?? null);
+    },
     async findByEmail(email) {
       return structuredClone(users.get(email) ?? null);
     },

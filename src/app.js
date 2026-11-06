@@ -14,14 +14,16 @@ import { createBuildingsRouter } from './modules/buildings/buildings.routes.js';
 import { createAuthService } from './modules/auth/auth.service.js';
 import { createAuthController } from './modules/auth/auth.controller.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
+import { authenticate } from './middleware/authenticate.js';
 
-export function createApp({ roomsRepository, reservationsRepository, buildingsRepository, usersRepository, runInTransaction, enableDebugRoutes = false, now }) {
+export function createApp({ roomsRepository, reservationsRepository, buildingsRepository, usersRepository, jwtSecret, jwtExpiresIn = '15m', runInTransaction, enableDebugRoutes = false, now }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestLogger);
   app.use(express.json());
   if (usersRepository) {
-    app.use('/api/auth', createAuthRouter(createAuthController(createAuthService({ usersRepository }))));
+    const authService = createAuthService({ usersRepository, jwtSecret, jwtExpiresIn });
+    app.use('/api/auth', createAuthRouter(createAuthController(authService), authenticate(jwtSecret)));
   }
   const roomsService = createRoomsService({ roomsRepository, buildingsRepository });
   const reservationsService = createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, now });

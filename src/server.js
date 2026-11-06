@@ -1,4 +1,5 @@
 import { createApp } from './app.js';
+import { loadAuthConfig } from './config/auth.js';
 
 try {
   process.loadEnvFile();
@@ -6,6 +7,7 @@ try {
   if (error.code !== 'ENOENT') throw error;
 }
 
+const authConfig = loadAuthConfig(process.env);
 const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error('PORT must be an integer between 1 and 65535');
@@ -31,6 +33,7 @@ const runInTransaction = db
   ? (await import('./modules/reservations/reservations.unit-of-work.knex.js')).createReservationsUnitOfWork(db)
   : undefined;
 const app = createApp({
+  ...authConfig,
   usersRepository: createUsersRepository(db),
   runInTransaction,
   roomsRepository,

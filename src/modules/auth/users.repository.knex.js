@@ -8,6 +8,9 @@ function toUser(row) {
 
 export function createUsersRepository(db) {
   return {
+    async findById(id) {
+      return toUser(await db('users').where({ id }).first());
+    },
     async findByEmail(email) {
       return toUser(await db('users').where({ email }).first());
     },
