@@ -11,12 +11,18 @@ import { createReservationsRouter } from './modules/reservations/reservations.ro
 import { createBuildingsService } from './modules/buildings/buildings.service.js';
 import { createBuildingsController } from './modules/buildings/buildings.controller.js';
 import { createBuildingsRouter } from './modules/buildings/buildings.routes.js';
+import { createAuthService } from './modules/auth/auth.service.js';
+import { createAuthController } from './modules/auth/auth.controller.js';
+import { createAuthRouter } from './modules/auth/auth.routes.js';
 
-export function createApp({ roomsRepository, reservationsRepository, buildingsRepository, runInTransaction, enableDebugRoutes = false, now }) {
+export function createApp({ roomsRepository, reservationsRepository, buildingsRepository, usersRepository, runInTransaction, enableDebugRoutes = false, now }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestLogger);
   app.use(express.json());
+  if (usersRepository) {
+    app.use('/api/auth', createAuthRouter(createAuthController(createAuthService({ usersRepository }))));
+  }
   const roomsService = createRoomsService({ roomsRepository, buildingsRepository });
   const reservationsService = createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, now });
   app.use('/api/rooms', createRoomsRouter(createRoomsController(roomsService)));

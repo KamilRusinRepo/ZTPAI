@@ -12,6 +12,7 @@
     "start:seed": "node scripts/start-seeded.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
+    "verify:auth-register": "node scripts/verify-auth-registration.js",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "migrate:latest": "knex migrate:latest",
@@ -25,6 +26,7 @@
     "evidence": "node scripts/evidence.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "express": "^5.1.0",
     "knex": "^3.3.0",
     "pg": "^8.23.1",

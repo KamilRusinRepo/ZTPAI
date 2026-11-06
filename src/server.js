@@ -14,10 +14,11 @@ const driver = process.env.REPOSITORY_DRIVER ?? 'knex';
 if (!['knex', 'memory'].includes(driver)) throw new Error('REPOSITORY_DRIVER must be knex or memory');
 
 // Repository implementation is selected only here.
-const [{ createRoomsRepository }, { createReservationsRepository }, { createBuildingsRepository }] = await Promise.all([
+const [{ createRoomsRepository }, { createReservationsRepository }, { createBuildingsRepository }, { createUsersRepository }] = await Promise.all([
   import('./modules/rooms/rooms.repository.' + driver + '.js'),
   import('./modules/reservations/reservations.repository.' + driver + '.js'),
   import('./modules/buildings/buildings.repository.' + driver + '.js'),
+  import('./modules/auth/users.repository.' + driver + '.js'),
 ]);
 const db = driver === 'knex' ? (await import('./db/knex.js')).db : null;
 if (db) {
@@ -30,6 +31,7 @@ const runInTransaction = db
   ? (await import('./modules/reservations/reservations.unit-of-work.knex.js')).createReservationsUnitOfWork(db)
   : undefined;
 const app = createApp({
+  usersRepository: createUsersRepository(db),
   runInTransaction,
   roomsRepository,
   reservationsRepository: createReservationsRepository(db ?? {
