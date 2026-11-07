@@ -2,6 +2,7 @@ import knex from 'knex';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import config from '../knexfile.js';
+import appConfig from '../src/config/index.js';
 import { createReservationBody } from '../src/modules/reservations/reservations.schemas.js';
 
 export async function countConfirmed(db, input) {
@@ -45,8 +46,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       throw new Error('This interval is already booked. Choose another room or start/end time; no requests were sent.');
     }
     const { responses, count } = await runDoubleBooking({ db, input,
-      accessToken: process.env.ACCESS_TOKEN,
-      baseUrls: [process.env.BASE_URL ?? 'http://localhost:3000'] });
+      accessToken: appConfig.accessToken,
+      baseUrls: [appConfig.baseUrl] });
     const expected = responses.filter((response) => response.status === 201).length === 1
       && responses.filter((response) => response.status === 409 && response.body.error.code === 'ROOM_ALREADY_BOOKED').length === 9
       && count === 1;

@@ -1,4 +1,3 @@
-// Uruchomienie demonstracji z rozpoczętą rezerwacją, niezależnie od ustawień terminala.
-process.env.SEED_STARTED_RESERVATION = 'true';
-process.env.REPOSITORY_DRIVER = 'memory';
+// Configuration interprets this flag before the server starts.
+process.argv.push('--seed-demo');
 await import('../src/server.js');

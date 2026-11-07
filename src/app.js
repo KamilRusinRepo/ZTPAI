@@ -1,4 +1,6 @@
 import express from 'express';
+import swaggerUi from 'swagger-ui-express';
+import { createOpenapiDocument } from './docs/openapi.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { notFound } from './middleware/notFound.js';
@@ -28,6 +30,12 @@ export function createApp({ roomsRepository, reservationsRepository, buildingsRe
     return publicAuth || publicDocs ? next() : requireAuth(req, res, next);
   });
   app.use(express.json());
+  const openapiDocument = createOpenapiDocument({ jwtExpiresIn, enableDebugRoutes });
+  app.get('/api/docs/openapi.json', (req, res) => res.json(openapiDocument));
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapiDocument, {
+    customSiteTitle: 'Room Booking API — Swagger UI',
+    swaggerOptions: { url: '/api/docs/openapi.json', persistAuthorization: false },
+  }));
   if (usersRepository) {
     const authService = createAuthService({ usersRepository, jwtSecret, jwtExpiresIn });
     app.use('/api/auth', createAuthRouter(createAuthController(authService), requireAuth));
