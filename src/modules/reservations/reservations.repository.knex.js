@@ -1,7 +1,8 @@
 function toReservation(row) {
   if (!row) return null;
   return {
-    id: row.id, roomId: row.room_id, reservedBy: row.reserved_by,
+    id: row.id, roomId: row.room_id, userId: row.user_id,
+    user: { id: row.user_id, email: row.user_email },
     participants: row.participants, startTime: row.start_time.toISOString(),
     endTime: row.end_time.toISOString(), status: row.status,
     createdAt: row.created_at.toISOString(), cancelledAt: row.cancelled_at?.toISOString() ?? null,
@@ -24,11 +25,13 @@ export function createReservationsRepository(db) {
     return db('reservations as res')
       .join('rooms as r', 'r.id', 'res.room_id')
       .join('buildings as b', 'b.id', 'r.building_id')
-      .select('res.*', 'r.name as room_name', 'b.id as building_id', 'b.name as building_name');
+      .join('users as u', 'u.id', 'res.user_id')
+      .select('res.*', 'r.name as room_name', 'b.id as building_id', 'b.name as building_name', 'u.email as user_email');
   }
   return {
-    async listPage({ roomId, buildingId, status, from, to, page = 1, limit = 20, sort = 'startTime' } = {}) {
+    async listPage({ userId, roomId, buildingId, status, from, to, page = 1, limit = 20, sort = 'startTime' } = {}) {
       const base = withRelations().modify((query) => {
+        if (userId !== undefined) query.where('res.user_id', userId);
         if (roomId !== undefined) query.where('res.room_id', roomId);
         if (buildingId !== undefined) query.where('r.building_id', buildingId);
         if (status !== undefined) query.where('res.status', status);
@@ -57,16 +60,16 @@ export function createReservationsRepository(db) {
     },
     async create(data) {
       const [row] = await db('reservations').insert({
-        room_id: data.roomId, reserved_by: data.reservedBy, participants: data.participants,
+        room_id: data.roomId, user_id: data.userId, participants: data.participants,
         start_time: data.startTime, end_time: data.endTime, status: data.status,
         created_at: data.createdAt, cancelled_at: data.cancelledAt,
       }).returning('*');
-      return toReservation(row);
+      return this.findById(row.id);
     },
     async updateStatus(id, status, cancelledAt) {
       const [row] = await db('reservations').where({ id })
         .update({ status, cancelled_at: cancelledAt }).returning('*');
-      return toReservation(row);
+      return row ? this.findById(row.id) : null;
     },
   };
 }

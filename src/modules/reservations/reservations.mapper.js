@@ -17,7 +17,7 @@ export function toReservationResponse(reservation) {
   return {
     id: reservation.id ?? null,
     roomId: reservation.roomId ?? null,
-    reservedBy: reservation.reservedBy ?? null,
+    user: reservation.user ? { id: reservation.user.id, email: reservation.user.email } : null,
     participants: reservation.participants ?? null,
     startTime: toIsoOrNull(reservation.startTime),
     endTime: toIsoOrNull(reservation.endTime),

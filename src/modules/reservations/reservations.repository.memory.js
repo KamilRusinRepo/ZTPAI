@@ -1,9 +1,9 @@
-export function createReservationsRepository({ seedStartedReservation = false, roomsRepository } = {}) {
+export function createReservationsRepository({ seedStartedReservation = false, roomsRepository, usersRepository, seedUserId = 1 } = {}) {
   // Opcjonalne dane do demonstracji anulowania rozpoczętej rezerwacji.
   const reservations = seedStartedReservation ? [{
     id: 1,
     roomId: 1,
-    reservedBy: 'Jan Kowalski',
+    userId: seedUserId,
     participants: 10,
     startTime: '2026-10-25T18:00:00.000Z',
     endTime: '2026-10-25T21:00:00.000Z',
@@ -16,6 +16,10 @@ export function createReservationsRepository({ seedStartedReservation = false, r
   async function withRoom(reservation) {
     if (!reservation) return null;
     const result = structuredClone(reservation);
+    if (usersRepository) {
+      const user = await usersRepository.findById(reservation.userId);
+      result.user = user ? { id: user.id, email: user.email } : null;
+    }
     if (roomsRepository) {
       const room = await roomsRepository.findById(reservation.roomId);
       result.room = { id: room.id, name: room.name, building: room.building };
@@ -23,12 +27,13 @@ export function createReservationsRepository({ seedStartedReservation = false, r
     return result;
   }
   return {
-    async listPage({ roomId, buildingId, status, from, to, page = 1, limit = 20, sort = 'startTime' } = {}) {
+    async listPage({ userId, roomId, buildingId, status, from, to, page = 1, limit = 20, sort = 'startTime' } = {}) {
       const roomBuildings = buildingId === undefined ? null : new Map(
         (await roomsRepository.list()).map((room) => [room.id, room.buildingId])
       );
       const filtered = reservations.filter((item) =>
-        (roomId === undefined || item.roomId === roomId)
+        (userId === undefined || item.userId === userId)
+        && (roomId === undefined || item.roomId === roomId)
         && (buildingId === undefined || roomBuildings.get(item.roomId) === buildingId)
         && (status === undefined || item.status === status)
         && (from === undefined || new Date(item.endTime) > new Date(from))
@@ -55,14 +60,14 @@ export function createReservationsRepository({ seedStartedReservation = false, r
     async create(data) {
       const reservation = { ...structuredClone(data), id: nextReservationId++ };
       reservations.push(reservation);
-      return structuredClone(reservation);
+      return withRoom(reservation);
     },
     async updateStatus(id, status, cancelledAt) {
       const reservation = reservations.find((item) => item.id === id);
       if (!reservation) return null;
       reservation.status = status;
       reservation.cancelledAt = cancelledAt;
-      return structuredClone(reservation);
+      return withRoom(reservation);
     },
   };
 }

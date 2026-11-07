@@ -7,6 +7,21 @@ export function createBuildingsRepository() {
   ];
   let nextId = 3;
   return {
+    async update(id, data) {
+      const building = buildings.find((item) => item.id === id);
+      if (!building) return null;
+      if (data.name !== undefined && buildings.some((item) => item.id !== id && item.name === data.name)) {
+        throw new ConflictError('Resource already exists', 'UNIQUE_VIOLATION');
+      }
+      Object.assign(building, structuredClone(data));
+      return structuredClone(building);
+    },
+    async remove(id) {
+      const index = buildings.findIndex((building) => building.id === id);
+      if (index < 0) return false;
+      buildings.splice(index, 1);
+      return true;
+    },
     async listWithRoomsCount(roomsRepository) {
       const counts = new Map();
       for (const room of await roomsRepository.list()) {

@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError, ValidationError } from '../../errors/AppError.js';
+import { ConflictError, NotFoundError, ValidationError, UnauthorizedError, ForbiddenError } from '../../errors/AppError.js';
 
 const MIN_DURATION_MS = 15 * 60 * 1000;
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
@@ -8,7 +8,17 @@ const ALLOWED_TRANSITIONS = {
 };
 
 export function createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, now = () => new Date() }) {
-  async function createCheckedReservation(input, { roomsRepository, reservationsRepository }) {
+  function requireCurrentUser(currentUser) {
+    if (!Number.isSafeInteger(currentUser?.id) || currentUser.id < 1
+      || !['USER', 'ADMIN'].includes(currentUser.role)) throw new UnauthorizedError();
+  }
+
+  function requireAccess(reservation, currentUser) {
+    if (!reservation || (currentUser.role !== 'ADMIN' && reservation.userId !== currentUser.id)) {
+      throw new NotFoundError('Reservation');
+    }
+  }
+  async function createCheckedReservation(input, currentUser, { roomsRepository, reservationsRepository }) {
     const room = roomsRepository.lockById
       ? await roomsRepository.lockById(input.roomId)
       : await roomsRepository.findById(input.roomId);
@@ -39,7 +49,7 @@ export function createReservationsService({ roomsRepository, reservationsReposit
 
     return reservationsRepository.create({
       roomId: input.roomId,
-      reservedBy: input.reservedBy,
+      userId: currentUser.id,
       participants: input.participants,
       startTime: input.startTime,
       endTime: input.endTime,
@@ -65,26 +75,34 @@ export function createReservationsService({ roomsRepository, reservationsReposit
   }
 
   return {
-    async getReservation(id) {
+    async getReservation(id, currentUser) {
+      requireCurrentUser(currentUser);
       const reservation = await reservationsRepository.findById(id);
-      if (!reservation) throw new NotFoundError('Reservation');
+      requireAccess(reservation, currentUser);
       return reservation;
     },
-    async createReservation(input) {
-      return write((repositories) => createCheckedReservation(input, repositories));
+    async createReservation(input, currentUser) {
+      requireCurrentUser(currentUser);
+      return write((repositories) => createCheckedReservation(input, currentUser, repositories));
     },
-    async listReservations(filters) {
+    async listReservations(filters = {}, currentUser) {
+      requireCurrentUser(currentUser);
+      if (currentUser.role === 'USER') {
+        if (filters.userId !== undefined) throw new ForbiddenError('Only ADMIN can filter reservations by userId');
+        return reservationsRepository.listPage({ ...filters, userId: currentUser.id });
+      }
       return reservationsRepository.listPage(filters);
     },
-    async cancelReservation(id) {
+    async cancelReservation(id, currentUser) {
+      requireCurrentUser(currentUser);
       return write(async ({ roomsRepository, reservationsRepository }) => {
         let reservation = await reservationsRepository.findById(id);
-        if (!reservation) throw new NotFoundError('Reservation');
+        requireAccess(reservation, currentUser);
         if (roomsRepository.lockById) {
           await roomsRepository.lockById(reservation.roomId);
           // Inne żądanie mogło anulować rezerwację podczas oczekiwania na blokadę.
           reservation = await reservationsRepository.findById(id);
-          if (!reservation) throw new NotFoundError('Reservation');
+          requireAccess(reservation, currentUser);
         }
         // Powtórzenie anulowania zwraca ten sam stan, także po terminie rozpoczęcia.
         if (reservation.status === 'CANCELLED') return reservation;

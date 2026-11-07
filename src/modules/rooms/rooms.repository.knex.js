@@ -9,6 +9,15 @@ function toRoom(row) {
 
 export function createRoomsRepository(db) {
   return {
+    async update(id, data) {
+      const changes = {};
+      if (data.name !== undefined) changes.name = data.name;
+      if (data.capacity !== undefined) changes.capacity = data.capacity;
+      if (data.buildingId !== undefined) changes.building_id = data.buildingId;
+      const [row] = await db('rooms').where({ id }).update(changes).returning('*');
+      return toRoom(row);
+    },
+    async remove(id) { return (await db('rooms').where({ id }).delete()) > 0; },
     async lockById(id) {
       // Sala istnieje również wtedy, gdy nie ma jeszcze żadnych rezerwacji.
       return toRoom(await db('rooms').where({ id }).forUpdate().first());

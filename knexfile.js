@@ -1,18 +1,9 @@
 import { fileURLToPath } from 'node:url';
-
-try {
-  process.loadEnvFile();
-} catch (error) {
-  if (error.code !== 'ENOENT') throw error;
-}
-
-if (!process.env.DATABASE_URL) {
-  throw new Error('Set DATABASE_URL or copy .env.example to .env');
-}
+import config from './src/config/index.js';
 
 export default {
   client: 'pg',
-  connection: process.env.DATABASE_URL,
+  connection: config.databaseUrl,
   pool: { min: 0, max: 10 },
   seeds: {
     directory: fileURLToPath(new URL('./src/db/seeds/', import.meta.url)),

@@ -5,6 +5,11 @@ function toBuilding(row) {
 
 export function createBuildingsRepository(db) {
   return {
+    async update(id, data) {
+      const [row] = await db('buildings').where({ id }).update(data).returning('*');
+      return toBuilding(row);
+    },
+    async remove(id) { return (await db('buildings').where({ id }).delete()) > 0; },
     async listWithRoomsCount() {
       const rows = await db('buildings as b').leftJoin('rooms as r', 'r.building_id', 'b.id')
         .select('b.*').count({ rooms_count: 'r.id' }).groupBy('b.id').orderBy('b.id');

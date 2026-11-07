@@ -6,7 +6,6 @@ export const idParams = z.object({ id: urlId });
 
 export const createReservationBody = z.object({
   roomId: z.number().int().positive(),
-  reservedBy: z.string().trim().min(3).max(100),
   participants: z.number().int().positive(),
   startTime: z.iso.datetime({ offset: true }).transform((value) => new Date(value).toISOString()),
   endTime: z.iso.datetime({ offset: true }).transform((value) => new Date(value).toISOString()),
@@ -16,6 +15,7 @@ const queryDate = z.iso.datetime({ offset: true }).transform((value) => new Date
 const positiveQueryInteger = z.string().regex(/^\d+$/).pipe(z.coerce.number().int().positive());
 
 export const listReservationsQuery = z.object({
+  userId: positiveQueryInteger.pipe(z.number().max(2147483647)).optional(),
   roomId: positiveQueryInteger.pipe(z.number().max(2147483647)).optional(),
   buildingId: positiveQueryInteger.pipe(z.number().max(2147483647)).optional(),
   status: z.enum(['CONFIRMED', 'CANCELLED']).optional(),

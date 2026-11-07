@@ -2,6 +2,11 @@ import { AppError } from '../errors/AppError.js';
 
 export function errorHandler(error, req, res, next) {
   if (res.headersSent) return next(error);
+  if (error.code === '23503') {
+    return res.status(409).json({
+      error: { code: 'RESOURCE_IN_USE', message: 'Operation conflicts with related resources', requestId: req.id },
+    });
+  }
   if (error.code === '23P01') {
     return res.status(409).json({
       error: { code: 'ROOM_ALREADY_BOOKED', message: 'Room is already booked for this time', requestId: req.id },

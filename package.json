@@ -12,6 +12,10 @@
     "start:seed": "node scripts/start-seeded.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
+    "verify:auth-register": "node scripts/verify-auth-registration.js",
+    "verify:auth-login": "node scripts/verify-auth-login.js",
+    "verify:auth-reservations": "node scripts/verify-auth-reservations.js",
+    "verify:authorization": "node scripts/verify-authorization.js",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "migrate:latest": "knex migrate:latest",
@@ -25,9 +29,12 @@
     "evidence": "node scripts/evidence.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
     "knex": "^3.3.0",
     "pg": "^8.23.1",
+    "swagger-ui-express": "^5.0.1",
     "zod": "^4.6.7"
   }
 }
