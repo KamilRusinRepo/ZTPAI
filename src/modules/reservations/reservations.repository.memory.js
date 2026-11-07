@@ -27,12 +27,13 @@ export function createReservationsRepository({ seedStartedReservation = false, r
     return result;
   }
   return {
-    async listPage({ roomId, buildingId, status, from, to, page = 1, limit = 20, sort = 'startTime' } = {}) {
+    async listPage({ userId, roomId, buildingId, status, from, to, page = 1, limit = 20, sort = 'startTime' } = {}) {
       const roomBuildings = buildingId === undefined ? null : new Map(
         (await roomsRepository.list()).map((room) => [room.id, room.buildingId])
       );
       const filtered = reservations.filter((item) =>
-        (roomId === undefined || item.roomId === roomId)
+        (userId === undefined || item.userId === userId)
+        && (roomId === undefined || item.roomId === roomId)
         && (buildingId === undefined || roomBuildings.get(item.roomId) === buildingId)
         && (status === undefined || item.status === status)
         && (from === undefined || new Date(item.endTime) > new Date(from))

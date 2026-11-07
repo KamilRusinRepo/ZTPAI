@@ -29,8 +29,9 @@ export function createReservationsRepository(db) {
       .select('res.*', 'r.name as room_name', 'b.id as building_id', 'b.name as building_name', 'u.email as user_email');
   }
   return {
-    async listPage({ roomId, buildingId, status, from, to, page = 1, limit = 20, sort = 'startTime' } = {}) {
+    async listPage({ userId, roomId, buildingId, status, from, to, page = 1, limit = 20, sort = 'startTime' } = {}) {
       const base = withRelations().modify((query) => {
+        if (userId !== undefined) query.where('res.user_id', userId);
         if (roomId !== undefined) query.where('res.room_id', roomId);
         if (buildingId !== undefined) query.where('r.building_id', buildingId);
         if (status !== undefined) query.where('res.status', status);

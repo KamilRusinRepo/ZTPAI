@@ -17,5 +17,6 @@ export function createApp(options) {
 }
 
 export function createReservationsRepository(options = {}) {
-  return buildRepository({ usersRepository, ...options });
+  const repository = buildRepository({ usersRepository, ...options });
+  return { ...repository, create(data) { return repository.create({ userId: currentUser.id, ...data }); } };
 }

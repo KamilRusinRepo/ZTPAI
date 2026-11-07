@@ -8,7 +8,7 @@ import config from '../knexfile.js';
 import { createApp } from '../src/app.js';
 import { createUsersRepository } from '../src/modules/auth/users.repository.knex.js';
 import { up, down } from '../src/db/migrations/20261106000100_create_users.js';
-import { seed } from '../src/db/seeds/02_users.js';
+import { seed } from '../src/db/seeds/00_users.js';
 
 const schema = 'verify_login_' + randomUUID().replaceAll('-', '');
 const jwtSecret = randomBytes(48).toString('base64');

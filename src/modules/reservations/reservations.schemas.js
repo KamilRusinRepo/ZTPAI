@@ -15,6 +15,7 @@ const queryDate = z.iso.datetime({ offset: true }).transform((value) => new Date
 const positiveQueryInteger = z.string().regex(/^\d+$/).pipe(z.coerce.number().int().positive());
 
 export const listReservationsQuery = z.object({
+  userId: positiveQueryInteger.pipe(z.number().max(2147483647)).optional(),
   roomId: positiveQueryInteger.pipe(z.number().max(2147483647)).optional(),
   buildingId: positiveQueryInteger.pipe(z.number().max(2147483647)).optional(),
   status: z.enum(['CONFIRMED', 'CANCELLED']).optional(),

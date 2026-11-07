@@ -29,10 +29,10 @@ export function createApp({ roomsRepository, reservationsRepository, buildingsRe
   });
   app.use(express.json());
   if (usersRepository) {
-    const authService = createAuthService({ usersRepository, jwtSecret, jwtExpiresIn });to
+    const authService = createAuthService({ usersRepository, jwtSecret, jwtExpiresIn });
     app.use('/api/auth', createAuthRouter(createAuthController(authService), requireAuth));
   }
-  const roomsService = createRoomsService({ roomsRepository, buildingsRepository });
+  const roomsService = createRoomsService({ roomsRepository, buildingsRepository, reservationsRepository });
   const reservationsService = createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, now });
   app.use('/api/rooms', createRoomsRouter(createRoomsController(roomsService)));
   app.use('/api/reservations', createReservationsRouter(createReservationsController(reservationsService)));
