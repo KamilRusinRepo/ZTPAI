@@ -1,0 +1,18 @@
+# Wyłącznie baza testowa. Publiczne dane lokalne, niezależne od deweloperskiej .env.
+services:
+  db-test:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: room_booking
+      POSTGRES_PASSWORD: example_password
+      POSTGRES_DB: room_booking_test
+    ports:
+      - "127.0.0.1:55432:5432"
+    # Baza jest odtwarzana od zera po zatrzymaniu kontenera.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U room_booking -d room_booking_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

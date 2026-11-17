@@ -1,5 +1,18 @@
+const common = { testEnvironment: 'node', transform: {} };
+
 export default {
-  testEnvironment: 'node',
-  testMatch: ['<rootDir>/tests/unit/**/*.test.js'],
-  transform: {},
+  testTimeout: 15000,
+  projects: [
+    {
+      ...common,
+      displayName: 'unit',
+      testMatch: ['<rootDir>/tests/unit/**/*.test.js'],
+    },
+    {
+      ...common,
+      displayName: 'integration',
+      setupFiles: ['<rootDir>/tests/setupEnv.js'],
+      testMatch: ['<rootDir>/tests/integration/**/*.test.js'],
+    },
+  ],
 };
