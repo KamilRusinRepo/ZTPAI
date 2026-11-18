@@ -17,8 +17,10 @@ import { createAuthService } from './modules/auth/auth.service.js';
 import { createAuthController } from './modules/auth/auth.controller.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
 import { authenticate } from './middleware/authenticate.js';
+import { createAuditLogController } from './modules/audit-log/audit-log.controller.js';
+import { createAuditLogRouter } from './modules/audit-log/audit-log.routes.js';
 
-export function createApp({ roomsRepository, reservationsRepository, buildingsRepository, usersRepository, jwtSecret, jwtExpiresIn = '15m', runInTransaction, enableDebugRoutes = false, now }) {
+export function createApp({ roomsRepository, reservationsRepository, buildingsRepository, usersRepository, auditLogRepository, eventBus, jwtSecret, jwtExpiresIn = '15m', runInTransaction, enableDebugRoutes = false, now }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestLogger);
@@ -41,9 +43,12 @@ export function createApp({ roomsRepository, reservationsRepository, buildingsRe
     app.use('/api/auth', createAuthRouter(createAuthController(authService), requireAuth));
   }
   const roomsService = createRoomsService({ roomsRepository, buildingsRepository, reservationsRepository });
-  const reservationsService = createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, now });
+  const reservationsService = createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, eventBus, now });
   app.use('/api/rooms', createRoomsRouter(createRoomsController(roomsService)));
   app.use('/api/reservations', createReservationsRouter(createReservationsController(reservationsService)));
+  if (auditLogRepository) {
+    app.use('/api/admin', createAuditLogRouter(createAuditLogController(auditLogRepository)));
+  }
   if (buildingsRepository) {
     app.use('/api/buildings', createBuildingsRouter(createBuildingsController(createBuildingsService({ buildingsRepository, roomsRepository }))));
   }
