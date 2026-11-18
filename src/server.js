@@ -49,8 +49,32 @@ server.on('error', async (error) => {
   if (db) await db.destroy();
   process.exitCode = 1;
 });
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received, shutting down`);
+  try {
+    await new Promise((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+    console.log('HTTP server closed; active requests finished');
+  } catch (error) {
+    console.error('Cannot close HTTP server: ' + error.message);
+    process.exitCode = 1;
+  } finally {
+    try {
+      if (db) {
+        await db.destroy();
+        console.log('Database connection pool closed');
+      }
+    } catch (error) {
+      console.error('Cannot close database pool: ' + error.message);
+      process.exitCode = 1;
+    }
+    console.log('Shutdown complete');
+  }
+}
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.once(signal, () => {
-    server.close(async () => { if (db) await db.destroy(); });
-  });
+  process.once(signal, () => { void shutdown(signal); });
 }

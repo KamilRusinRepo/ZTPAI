@@ -1,4 +1,8 @@
-const common = { testEnvironment: 'node', transform: {} };
+const common = {
+  testEnvironment: 'node',
+  transform: {},
+  modulePathIgnorePatterns: ['<rootDir>/.tools/'],
+};
 
 export default {
   testTimeout: 15000,

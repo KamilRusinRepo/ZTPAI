@@ -21,7 +21,7 @@
     "verify:auth-login": "node scripts/verify-auth-login.js",
     "verify:auth-reservations": "node scripts/verify-auth-reservations.js",
     "verify:authorization": "node scripts/verify-authorization.js",
-    "db:up": "docker compose up -d --wait",
+    "db:up": "docker compose up -d --wait db",
     "db:down": "docker compose down",
     "migrate:latest": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
