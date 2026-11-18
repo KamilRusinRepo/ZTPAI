@@ -1,11 +1,12 @@
+import { currentUser, publicUser, authorization } from '../tests/helpers/reservation-fixtures.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRoomsRepository } from '../src/modules/rooms/rooms.repository.memory.js';
-import { createReservationsRepository } from '../src/modules/reservations/reservations.repository.memory.js';
+import { createReservationsRepository } from '../tests/helpers/reservation-fixtures.js';
 import { createReservationsService } from '../src/modules/reservations/reservations.service.js';
 
 const input = {
-  roomId: 1, reservedBy: 'Jan Kowalski', participants: 20,
+  roomId: 1, participants: 20,
   startTime: '2026-11-10T10:00:00.000Z', endTime: '2026-11-10T12:00:00.000Z',
 };
 
@@ -33,13 +34,16 @@ test('Service uses injected repositories without HTTP and saves only accepted re
   let saves = 0;
   const service = createReservationsService({
     roomsRepository: { async findById(id) { return id === 1 ? { id, capacity: 30 } : null; } },
-    reservationsRepository: { async create(data) { saves++; return { ...data, id: saves }; } },
+    reservationsRepository: {
+      async list() { return []; },
+      async create(data) { saves++; return { ...data, id: saves }; },
+    },
     now: () => new Date('2026-10-25T10:00:00.000Z'),
   });
-  await assert.rejects(service.createReservation({ ...input, roomId: 999 }), { message: 'Room not found' });
-  await assert.rejects(service.createReservation({ ...input, participants: 31 }), { message: 'Room capacity exceeded' });
+  await assert.rejects(service.createReservation({ ...input, roomId: 999 }, currentUser), { message: 'Room not found' });
+  await assert.rejects(service.createReservation({ ...input, participants: 31 }, currentUser), { message: 'Room capacity exceeded' });
   assert.equal(saves, 0);
-  const reservation = await service.createReservation(input);
+  const reservation = await service.createReservation(input, currentUser);
   assert.equal(reservation.id, 1);
   assert.equal(reservation.createdAt, '2026-10-25T10:00:00.000Z');
   assert.equal(reservation.cancelledAt, null);

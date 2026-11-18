@@ -1,18 +1,20 @@
+import { currentUser, publicUser, authorization } from '../tests/helpers/reservation-fixtures.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { createApp } from '../src/app.js';
+import { createApp } from '../tests/helpers/reservation-fixtures.js';
 import { createRoomsRepository } from '../src/modules/rooms/rooms.repository.memory.js';
-import { createReservationsRepository } from '../src/modules/reservations/reservations.repository.memory.js';
+import { createReservationsRepository } from '../tests/helpers/reservation-fixtures.js';
 
 function buildApp() {
   return createApp({
     roomsRepository: createRoomsRepository(),
     reservationsRepository: createReservationsRepository(),
+    now: () => new Date('2026-10-25T10:00:00Z'),
   });
 }
 
-const valid = { roomId: 1, reservedBy: 'Jan Kowalski', participants: 20, startTime: '2026-11-10T10:00:00.000Z', endTime: '2026-11-10T12:00:00.000Z' };
+const valid = { roomId: 1, participants: 20, startTime: '2026-11-10T10:00:00.000Z', endTime: '2026-11-10T12:00:00.000Z' };
 
 async function client(t) {
   const server = buildApp().listen(0, '127.0.0.1');
@@ -24,7 +26,7 @@ async function client(t) {
   return async (path, method = 'GET', body) => {
     const response = await fetch(`http://127.0.0.1:${server.address().port}${path}`, {
       method,
-      headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+      headers: { Authorization: authorization, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     assert.match(response.headers.get('content-type'), /application\/json/);
@@ -59,13 +61,14 @@ test('Zadanie 2: tworzenie, własne ID i status oraz kolejne ID', async (t) => {
   const created = await request('/api/reservations', 'POST', valid);
   assert.equal(created.status, 201);
   assert.equal(new Date(created.body.createdAt).toISOString(), created.body.createdAt);
-  assert.deepEqual(created.body, { id: 1, ...valid, status: 'CONFIRMED', createdAt: created.body.createdAt, cancelledAt: null });
-  assert.equal((await request('/api/reservations', 'POST', valid)).body.id, 2);
+  assert.deepEqual(created.body, { id: 1, ...valid, user: publicUser, status: 'CONFIRMED', createdAt: created.body.createdAt, cancelledAt: null });
+  assert.equal((await request('/api/reservations', 'POST', { ...valid, roomId: 2 })).body.id, 2);
 });
 
 for (const [field, values] of Object.entries({
   roomId: [undefined, null, 0, -1, '1', 1.5],
-  reservedBy: [undefined, null, '', '   ', 123, 'ab', '  ab  ', 'a'.repeat(101)],
+  reservedBy: [null, '', 'Jan Kowalski'],
+  userId: [1, 999, null, '1'],
   participants: [undefined, null, 0, -1, '20', 1.5],
   startTime: [undefined, null, '', '   ', 123, 'invalid', '2026-11-10T10:00:00', '2026-02-30T10:00:00Z'],
   endTime: [undefined, null, '', '   ', 123, 'invalid', '2026-11-10T12:00:00'],
@@ -74,7 +77,7 @@ for (const [field, values] of Object.entries({
     test(`Zadanie 2: ${field}=${JSON.stringify(value)} -> 400`, async (t) => {
       const request = await client(t);
       assert.equal((await request('/api/reservations', 'POST', { ...valid, [field]: value })).status, 400);
-      assert.deepEqual((await request('/api/reservations')).body, []);
+      assert.deepEqual((await request('/api/reservations')).body.data, []);
     });
   }
 }
@@ -86,26 +89,28 @@ test('Zadanie 2: nieistniejąca sala -> 404', async (t) => {
 
 test('Zadanie 3: przekroczenie pojemności -> 409, granica -> 201', async (t) => {
   const request = await client(t);
-  assert.deepEqual(await request('/api/reservations', 'POST', { ...valid, participants: 40 }), {
-    status: 409, body: { message: 'Room capacity exceeded' },
-  });
+  const rejected = await request('/api/reservations', 'POST', { ...valid, participants: 40 });
+  assert.equal(rejected.status, 409);
+  assert.equal(rejected.body.error.code, 'ROOM_CAPACITY_EXCEEDED');
+  assert.equal(rejected.body.error.message, 'Room capacity exceeded');
+  assert.equal(typeof rejected.body.error.requestId, 'string');
   const accepted = await request('/api/reservations', 'POST', { ...valid, participants: 30 });
   assert.equal(accepted.status, 201);
   assert.equal(accepted.body.id, 1);
-  assert.equal((await request('/api/reservations')).body.length, 1);
+  assert.equal((await request('/api/reservations')).body.data.length, 1);
   assert.equal((await request('/api/reservations', 'POST', { ...valid, roomId: 4, participants: 11 })).status, 409);
 });
 
 test('Zadanie 4: lista, filtr i puste wyniki', async (t) => {
   const request = await client(t);
-  assert.deepEqual(await request('/api/reservations'), { status: 200, body: [] });
+  assert.deepEqual(await request('/api/reservations'), { status: 200, body: { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } } });
   const first = (await request('/api/reservations', 'POST', valid)).body;
   const second = (await request('/api/reservations', 'POST', { ...valid, roomId: 2 })).body;
-  assert.deepEqual((await request('/api/reservations')).body, [first, second]);
-  assert.deepEqual((await request('/api/reservations?roomId=1')).body, [first]);
-  assert.deepEqual((await request('/api/reservations?roomId=2')).body, [second]);
-  assert.deepEqual((await request('/api/reservations?roomId=4')).body, []);
-  assert.deepEqual((await request('/api/reservations?roomId=999')).body, []);
+  assert.deepEqual((await request('/api/reservations')).body.data, [first, second]);
+  assert.deepEqual((await request('/api/reservations?roomId=1')).body.data, [first]);
+  assert.deepEqual((await request('/api/reservations?roomId=2')).body.data, [second]);
+  assert.deepEqual((await request('/api/reservations?roomId=4')).body.data, []);
+  assert.deepEqual((await request('/api/reservations?roomId=999')).body.data, []);
 });
 
 test('Zadanie 5: anulowanie, powtórzenie i zapis zmiany w tablicy', async (t) => {
@@ -117,7 +122,7 @@ test('Zadanie 5: anulowanie, powtórzenie i zapis zmiany w tablicy', async (t) =
   assert.equal(cancelled.status, 'CANCELLED');
   assert.equal(new Date(cancelled.cancelledAt).toISOString(), cancelled.cancelledAt);
   assert.deepEqual((await request('/api/reservations/1/cancel', 'PATCH')).body, cancelled);
-  assert.deepEqual((await request('/api/reservations')).body, [cancelled]);
+  assert.deepEqual((await request('/api/reservations')).body.data, [cancelled]);
   assert.equal((await request('/api/reservations/999/cancel', 'PATCH')).status, 404);
 });
 
@@ -128,11 +133,11 @@ test('Błędny JSON i brak body -> 400; nieznana ścieżka -> 404', async (t) =>
   const base = `http://127.0.0.1:${server.address().port}`;
   for (const body of ['{broken', undefined, 'null', '[]']) {
     const result = await fetch(`${base}/api/reservations`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
+      method: 'POST', headers: { Authorization: authorization, 'Content-Type': 'application/json' }, body,
     });
     assert.equal(result.status, 400);
   }
-  assert.equal((await fetch(`${base}/unknown`)).status, 404);
+  assert.equal((await fetch(`${base}/unknown`, { headers: { Authorization: authorization } })).status, 404);
 });
 
 test('Nowy model: daty ze strefą są zwracane w UTC, bez pola date', async (t) => {
@@ -146,5 +151,5 @@ test('Nowy model: daty ze strefą są zwracane w UTC, bez pola date', async (t) 
   assert.equal(created.body.startTime, '2026-11-10T09:00:00.000Z');
   assert.equal(created.body.endTime, '2026-11-10T11:00:00.000Z');
   assert.equal('date' in created.body, false);
-  assert.deepEqual((await request('/api/reservations')).body, [created.body]);
+  assert.deepEqual((await request('/api/reservations')).body.data, [created.body]);
 });

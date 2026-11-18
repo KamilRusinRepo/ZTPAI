@@ -50,7 +50,7 @@ beforeAll(async () => {
 }, 30000);
 
 beforeEach(async () => {
-  await db.raw('TRUNCATE reservations, rooms, buildings, users RESTART IDENTITY');
+  await db.raw('TRUNCATE audit_log, reservations, rooms, buildings, users RESTART IDENTITY');
   await db('buildings').insert({ name: 'Budynek testowy', address: 'Testowa 1' });
   await db('rooms').insert({ building_id: 1, name: 'Sala testowa', capacity: 30 });
 });

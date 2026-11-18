@@ -67,6 +67,11 @@ export function createOpenapiDocument({ jwtExpiresIn = '15m', enableDebugRoutes 
     ReservationDetails: object({ id, room: object({ id, name: { type: 'string' }, building: ref('BuildingIdentity') }), ...reservationProperties }),
     ReservationPage: object({ data: array('ReservationDetails'), meta: object({ page: id, limit: id,
       total: { type: 'integer', minimum: 0 }, totalPages: { type: 'integer', minimum: 0 } }) }),
+    AuditEntry: object({ id: { type: 'string', pattern: '^[0-9]+$', description: 'BIGINT zapisany jako tekst, bez utraty precyzji.' },
+      eventType: { type: 'string', example: 'reservation.cancelled' },
+      payload: { type: 'object', additionalProperties: true }, createdAt: date }),
+    AuditPage: object({ data: array('AuditEntry'), meta: object({ page: id, limit: id,
+      total: { type: 'integer', minimum: 0 }, totalPages: { type: 'integer', minimum: 0 } }) }),
   };
   const response = (description, code, message) => ({ description, content: { 'application/json': {
     schema: ref('ApiError'), example: { error: { code, message, requestId: 'request-123' } },
@@ -82,6 +87,15 @@ export function createOpenapiDocument({ jwtExpiresIn = '15m', enableDebugRoutes 
   };
   const adminErrors = [[403, 'Forbidden'], [404, 'NotFound'], [409, 'Conflict']];
   const paths = {
+    '/api/admin/audit-log': {
+      get: operation('Admin', 'Dziennik zdarzeń — tylko ADMIN', 200, ref('AuditPage'), {
+        errors: [[403, 'Forbidden']],
+        description: 'Najnowsze najpierw (createdAt DESC, id DESC). Eventy są zapisywane asynchronicznie po COMMIT. Filtr eventType jest dokładny; nieznana nazwa daje pustą listę.',
+        query: [query('eventType', { type: 'string', minLength: 1, maxLength: 100 }, 'Np. reservation.created lub reservation.cancelled.'),
+          query('page', { ...id, default: 1 }, 'Numer strony.'),
+          query('limit', { ...id, maximum: 100, default: 20 }, 'Liczba wpisów na stronę.')],
+      }),
+    },
     '/api/docs': { get: { tags: ['Docs'], summary: 'Przekierowanie do Swagger UI', security: [],
       responses: { 301: { description: 'Przekierowanie do /api/docs/.', headers: { Location: { schema: { type: 'string' } } } },
         400: errorResponse('BadRequest'), 413: errorResponse('PayloadTooLarge'), 500: errorResponse('InternalError') } } },
@@ -145,7 +159,7 @@ export function createOpenapiDocument({ jwtExpiresIn = '15m', enableDebugRoutes 
   return { openapi: '3.0.3', info: { title: 'Room Booking API', version: '1.0.0',
     description: 'Zaloguj się w POST /api/auth/login, skopiuj accessToken i kliknij Authorize. Wklej sam token, bez słowa Bearer. Do zarządzania salami i budynkami potrzebny jest ADMIN.' },
     servers: [{ url: '/', description: 'Ten sam serwer co Swagger UI' }],
-    tags: [{ name: 'Auth' }, { name: 'Buildings' }, { name: 'Rooms' }, { name: 'Reservations' }, { name: 'Docs' }],
+    tags: [{ name: 'Auth' }, { name: 'Buildings' }, { name: 'Rooms' }, { name: 'Reservations' }, { name: 'Admin' }, { name: 'Docs' }],
     security: [{ bearerAuth: [] }], paths,
     components: { securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } }, schemas, responses } };
 }

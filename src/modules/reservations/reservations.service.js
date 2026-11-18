@@ -1,4 +1,5 @@
 import { ConflictError, NotFoundError, ValidationError, UnauthorizedError, ForbiddenError } from '../../errors/AppError.js';
+import { noopEventBus } from '../../events/eventBus.js';
 
 const MIN_DURATION_MS = 15 * 60 * 1000;
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
@@ -7,7 +8,7 @@ const ALLOWED_TRANSITIONS = {
   CANCELLED: [],
 };
 
-export function createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, now = () => new Date() }) {
+export function createReservationsService({ roomsRepository, reservationsRepository, runInTransaction, eventBus = noopEventBus, now = () => new Date() }) {
   function requireCurrentUser(currentUser) {
     if (!Number.isSafeInteger(currentUser?.id) || currentUser.id < 1
       || !['USER', 'ADMIN'].includes(currentUser.role)) throw new UnauthorizedError();
@@ -83,7 +84,13 @@ export function createReservationsService({ roomsRepository, reservationsReposit
     },
     async createReservation(input, currentUser) {
       requireCurrentUser(currentUser);
-      return write((repositories) => createCheckedReservation(input, currentUser, repositories));
+      const reservation = await write((repositories) => createCheckedReservation(input, currentUser, repositories));
+      // write() kończy się dopiero po COMMIT; rollback przerywa funkcję przed publish.
+      eventBus.publish('reservation.created', {
+        reservationId: reservation.id, roomId: reservation.roomId, userId: reservation.userId,
+        startTime: reservation.startTime, endTime: reservation.endTime,
+      });
+      return reservation;
     },
     async listReservations(filters = {}, currentUser) {
       requireCurrentUser(currentUser);
@@ -95,7 +102,7 @@ export function createReservationsService({ roomsRepository, reservationsReposit
     },
     async cancelReservation(id, currentUser) {
       requireCurrentUser(currentUser);
-      return write(async ({ roomsRepository, reservationsRepository }) => {
+      const result = await write(async ({ roomsRepository, reservationsRepository }) => {
         let reservation = await reservationsRepository.findById(id);
         requireAccess(reservation, currentUser);
         if (roomsRepository.lockById) {
@@ -105,7 +112,7 @@ export function createReservationsService({ roomsRepository, reservationsReposit
           requireAccess(reservation, currentUser);
         }
         // Powtórzenie anulowania zwraca ten sam stan, także po terminie rozpoczęcia.
-        if (reservation.status === 'CANCELLED') return reservation;
+        if (reservation.status === 'CANCELLED') return { reservation, changed: false };
         if (!ALLOWED_TRANSITIONS[reservation.status]?.includes('CANCELLED')) {
           throw new ConflictError('Cannot change reservation status to CANCELLED', 'INVALID_STATUS_TRANSITION');
         }
@@ -113,8 +120,16 @@ export function createReservationsService({ roomsRepository, reservationsReposit
         if (new Date(reservation.startTime).getTime() <= currentTime.getTime()) {
           throw new ConflictError('Reservation has already started', 'RESERVATION_ALREADY_STARTED');
         }
-        return reservationsRepository.updateStatus(id, 'CANCELLED', currentTime.toISOString());
+        const updated = await reservationsRepository.updateStatus(id, 'CANCELLED', currentTime.toISOString());
+        return { reservation: updated, changed: true };
       });
+      if (result.changed) {
+        eventBus.publish('reservation.cancelled', {
+          reservationId: result.reservation.id, roomId: result.reservation.roomId,
+          userId: result.reservation.userId, cancelledBy: currentUser.id,
+        });
+      }
+      return result.reservation;
     },
   };
 }

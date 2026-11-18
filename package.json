@@ -17,6 +17,7 @@
     "test:db:up": "docker compose -p room-booking-tests -f tests/compose.yaml up -d --wait",
     "test:db:down": "docker compose -p room-booking-tests -f tests/compose.yaml down",
     "test:legacy": "node --test test/*.test.js tests/*.test.js",
+    "verify:events": "node scripts/verify-audit-events.js",
     "verify:auth-register": "node scripts/verify-auth-registration.js",
     "verify:auth-login": "node scripts/verify-auth-login.js",
     "verify:auth-reservations": "node scripts/verify-auth-reservations.js",

@@ -58,42 +58,36 @@ W logach pojawiają się `SIGTERM received`, `HTTP server closed`,
 `down` zachowuje dane w nazwanym wolumenie; ponowne `up` używa tych samych danych.
 Opcja `down -v` usuwa także wolumen i dane — nie jest potrzebna do zwykłego zatrzymania.
 
-## Uruchamianie testów lokalnie
+## Zadanie 4 — eventy i audit log
 
-Wymagania: Node.js >= 22, npm i Docker Desktop z kontenerami Linux.
-
-## Testy jednostkowe
+Po aktualizacji kodu przebuduj API:
 
 ```powershell
-npm ci
-npm run test:unit
+docker compose up -d --build
 ```
 
-27 testów serwisu rezerwacji, repozytoria in-memory i wstrzyknięty zegar.
-Nie wymagają bazy danych ani `.env`.
+Nowa migracja automatycznie tworzy tabelę `audit_log` z payloadem `jsonb`.
+Serwis po zatwierdzeniu transakcji publikuje `reservation.created` lub
+`reservation.cancelled`. Kolizja i inne błędy nie publikują eventu;
+ponowne anulowanie nie tworzy kolejnego eventu.
 
-## Testy integracyjne
+Event bus używa `EventEmitter`. Każdy listener wykonuje się asynchronicznie,
+a jego błąd jest logowany i nie zmienia wyniku operacji API. Jeden listener
+zapisuje audyt, drugi wypisuje `[notification] to: <email> ...` wyłącznie wtedy,
+gdy ADMIN anuluje cudzą rezerwację. Przy wyłączaniu API oczekuje na zakończenie
+listenerów przed zamknięciem puli bazy (`Event listeners finished` w logach).
+Event bus jest w pamięci procesu: nagła awaria procesu może spowodować utratę
+eventu pomiędzy COMMIT a wykonaniem listenera.
 
-```powershell
-npm ci
-npm run test:db:up
-npm run test:integration
+W Swagger UI jest grupa **Admin** i endpoint:
+
+```text
+GET /api/admin/audit-log?page=1&limit=20
+GET /api/admin/audit-log?eventType=reservation.cancelled&page=1&limit=5
 ```
 
-`test:db:up` uruchamia wyłącznie PostgreSQL testowy z `tests/compose.yaml`.
-Osobna baza `room_booking_test` działa na porcie **55432**, niezależnie od
-deweloperskiego PostgreSQL na 5432. Nie trzeba uruchamiać API, wykonywać ręcznie
-migracji ani seedów. Testy przekazują `createApp()` bezpośrednio do Supertesta.
+Wymaga tokenu ADMIN-a; bez tokenu zwraca 401, dla USER-a 403. Format odpowiedzi
+to `{ data, meta: { page, limit, total, totalPages } }`, najnowsze wpisy są pierwsze
+(`createdAt DESC`, następnie `id DESC`). ID wpisu audytu jest tekstem, ponieważ
+PostgreSQL używa BIGINT. Zapisy audytu są asynchroniczne — po operacji odśwież listę.
 
-10 testów sprawdza rejestrację/logowanie/me, zapis rezerwacji i Location,
-400/details, 401, 403, 404, 409, paginację, anulowanie i równoległe rezerwacje.
-Migracje wykonują się w `beforeAll`, tabele są czyszczone przed każdym testem,
-a `afterAll` zamyka pulę Knexa.
-
-## Wszystkie testy z zestawu 05
-
-```powershell
-npm test
-```
-
-Wynik: **37/37** (27 unit + 10 integration).
