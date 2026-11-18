@@ -1,5 +1,71 @@
 # Room Booking API
 
+[![CI](https://github.com/KamilRusinRepo/ZTPAI/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/KamilRusinRepo/ZTPAI/actions/workflows/ci.yml)
+
+## Zadanie 5 — Continuous Integration
+
+Workflow `.github/workflows/ci.yml` uruchamia się przy pushu do `main`
+i przy każdym pull requeście. Job `Tests and Docker` uruchamia PostgreSQL 16
+z healthcheckiem, pobiera kod, ustawia Node.js 22 z cache npm, wykonuje
+`npm ci`, `npm test` (unit i integration) oraz `docker build`.
+
+CI korzysta z osobnej bazy `room_booking_test` w jednorazowym kontenerze usługi.
+`TEST_DATABASE_URL` jest ustawiany w workflow; `.env` ani dane deweloperskie
+nie są potrzebne. Baza CI używa `trust` w izolowanym środowisku runnera, a sekret
+JWT generuje `tests/setupEnv.js`. Workflow nie zawiera haseł ani tokenów
+i nie wymaga konfigurowania sekretów do testów. Ma uprawnienie `contents: read`.
+
+Do sprawozdania pokaż czerwone uruchomienie po celowej zmianie reguły kolizji,
+zielone uruchomienie po przywróceniu poprawnego kodu w tym samym PR,
+zmergowany PR oraz badge w README. Historia zadań 1–4 pozostaje w osobnych commitach.
+
+### Demonstracja czerwonego i zielonego CI na GitHubie
+
+Pliki workflow i badge muszą zostać zapisane w repozytorium GitHub; lokalne
+uruchomienie testów nie jest uruchomieniem GitHub Actions. Poniższa procedura
+pozwala uzyskać rzeczywiste wyniki do sprawozdania.
+
+1. Z poprawnej wersji `Lab5` utwórz gałąź i zapisz konfigurację:
+
+   ```powershell
+   git switch -c ci/zadanie05
+   git add .github/workflows/ci.yml README.md
+   git commit -m "Add CI with PostgreSQL tests and Docker build"
+   ```
+
+2. W `src/modules/reservations/reservations.service.js` tymczasowo zmień
+   `start < new Date(reservation.endTime).getTime()` na
+   `start <= new Date(reservation.endTime).getTime()`. Zapisz błąd osobno:
+
+   ```powershell
+   git add src/modules/reservations/reservations.service.js
+   git commit -m "Demonstrate CI detecting an overlap boundary regression"
+   git push -u origin ci/zadanie05
+   ```
+
+3. Na GitHubie otwórz PR z `ci/zadanie05` do `main`. Poczekaj na wynik
+   `CI / Tests and Docker`. Test stykających się przedziałów powinien nie przejść.
+   Zrób screenshot czerwonego uruchomienia i zapisz jego URL w sprawozdaniu.
+
+4. Przywróć `<` w tej samej linii i wypchnij poprawkę do **tej samej gałęzi**:
+
+   ```powershell
+   git add src/modules/reservations/reservations.service.js
+   git commit -m "Fix overlap boundary and restore passing tests"
+   git push
+   ```
+
+5. Poczekaj na zielone CI dla nowego commita. Pokaż, że testy oraz krok
+   `Build Docker image` zakończyły się sukcesem. Zrób screenshot i zapisz URL.
+
+6. Scal ten PR przez `Create a merge commit`, aby zachować historię demonstracji.
+   Push do `main` uruchomi CI ponownie. Po sukcesie badge dla `main` będzie zielony.
+   Do sprawozdania dodaj URL PR, oba uruchomienia, README z badge oraz hash merge commita.
+
+Jeżeli GitHub wskazuje konflikt z `main`, rozwiąż go przed demonstracją.
+Workflow raportuje wynik testów; blokowanie przycisku Merge wymaga dodatkowo
+ustawienia tego checka jako wymaganego w regułach ochrony gałęzi `main`.
+
 ## Uruchomienie od zera przez Docker Compose
 
 Wymagany Git i uruchomiony Docker Desktop.
